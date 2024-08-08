@@ -1,0 +1,5 @@
+.env
+data/*
+!data/setfit_predictions.csv
+Computational-Analysis-of-Communication-Project.code-workspace
+checkpoints
