@@ -1,0 +1,247 @@
+---
+title: "DA110: Computational Analysis of Communication"
+output: html_document
+date: "2024-08-15"
+bibliography: ccs_bib.bib
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(glue)
+library(here)
+library(readxl)
+library(parameters)
+library(report)
+library(lavaan)
+library(parameters)
+library(mirt)
+library(arrow)
+options(arrow.skip_nul = TRUE)
+library(lme4)
+library(lmerTest)
+library(sjPlot)
+library(coefplot2)
+library(knitr)
+```
+
+
+## Introduction
+
+Computational Communication Science (CCS) forms a field of empirical social science, which is focusing on social and (partially) public communication. Aiming at collecting, analyzing and understanding social realities, CCS follows a systematic approach, which makes the outcomes reproducible [@Haim2023]. There are several definitions of CCS, which outline different key components. One major component is utilizing large and complex datasets for analyzing social processes. Atteveldt et al. focus their definition on digital traces and “naturally occurring” data, which is analyzed with the help of algorithmic solutions  and enables the exploration of human communication through the application and evaluation of communication theory [@VanAtteveldt2018]. Another less restrictive definition underlines that, in addition to the use of big data of social processes,  the research process is mainly automated by the use of computer-based methods [@Geise2021].
+
+This work is grounded in the ideas and paradigms of CCS, which can be applied to a large variety of data sources.  With the rise of the digital era and the internet, almost every part of life is accompanied by digital communication. Media content has changed over time and emerged to be more interactive and connected than ever before [@Haim2023]. However, also more traditional media types can create interactions between personae and recipients.
+
+The term “parasocial interaction” was introduced by Horton and Wohl in 1956. In that time, mass media emerged and the authors examined the way in which a conversation takes place between users and mass media performers like quizmasters in television or radio moderators. With their research focus on the reception of TV performers, they found that an illusion of direct interaction with the audience is created. This illusion has the capability to make the recipient feel like the mass media performer is a person in the circle of his peers, without actually knowing each other in person. Based on this “perceived reciprocity”, parasocial interaction (PSI) is a product of the automated human process of social perception. In spite of no direct interaction with media personae, they are classified and  acted towards as social actors by the recipient [@Hartmann2011; @Horton1956]. This can be explained by the evolution of humans. Technology that represents reality is relatively recent in the span of evolution. Consequently, from a biological standpoint, humans are not adapted to process media-based stimuli differently from real-life experiences [@Stever2017].
+
+The strength of a parasocial interaction is influenced by different factors like the obtrusiveness, persistence or attractiveness of the persona, as well as the direct address of the recipient by the persona. Parasocial interaction forms a basis for parasocial relationships (PSR). When the PSI proceeds for a longer period, a longer-term bond with the media persona can be evolving [@Tukachinsky2018].
+
+In 2018, Tukachinsky and Stever proposed a theoretical model for the development of parasocial relationships [@Tukachinsky2018]. In their model, they first describe the experimentation phase, which is a stage in which the media user is acquiring information about the media personality. Following that phase, the intensification phase begins. This phase combines the constructs of intimacy and intensity: It is proposed that in this phase, media users seek intimacy with the media personality, which is attained by intensification and maintaining of the (parasocial) relationship with him. Media users think more about that media figure in their daily life, concerning the cognitive component. On an affective level, stronger feelings towards the media figure are developed, comparable with feelings towards friends or family. The behavioral instance is expressed by e.g. re-watching content featuring the media figure. Intensification can be predicted by the attachment style a media user is showing. Attachment styles are grounded in infantile, early experiences regarding love and care from e.g. parents. These experiences form the way in which an adult is attached to others. People, who are comfortable with or even strive for intimacy, reach higher PSR scores compared to people with an avoidant attachment style. PSI (parasocial interactions) like social media posts or interviews in the experimentation phase can be used to predict if there will be an intensification for a media user. Also, self-disclosure of a media figure can create a sense of intimacy.
+
+As one of the most visited websites in the world, YouTube provides a vast amount of communication data through its comment section, where viewers have the opportunity to express their thoughts and opinions freely. There is a large body of existing literature, which takes YouTube comments as a subject of research in order to e.g. conduct sentiment analysis, hate-/hope speech detection or homophobia/transphobia detection [@Chakravarthi2022a; @Chakravarthi2022; @Schmidt2017]. By applying different machine learning techniques or neural network architectures, the associated research questions can be answered in a scientific way. 
+
+The communication form, which is considered in this work, involves comments of viewers of YouTube videos from the genre family vlog. In most cases, these comments refer to actions seen in the video or to the content creators themselves. This creates a parasocial interaction between viewers and personae, i.e. the depicted family showing their daily life actions in their videos.
+
+Our hypotheses are the following:
+
+#### H1: The intimacy of a PSR increases over a) the duration of the relationship, as well as through more frequent information disclosure b) of the persona and c) of the recipient.
+
+#### H2: The intensity of a PSR increases over a) the duration of the relationship, as well as through more frequent information disclosure b) of the persona and c) of the recipient.
+
+The dataset, which is used for the evaluation of our hypotheses, consists of 280427 YouTube comments of specified family vlog channels. In order to measure the constructs intimacy and intensity, these constructs are operationalized by a variety of concepts, which can be present in a comment or not. These concepts are divided into cognitive ones, i.e. comprehension,  memory_relate, self_relate, evaluation,  future and affective ones, i.e. sympathy_antipathy, empathy_counterempathy and emotion_release. For each of these concepts, the comment is evaluated and assigned a score of 0 (= concept not present in comment) and 1 (=concept present). Also, the overall sentiment of a comment is scored as well as the variable "exclude_other", which is assigned 1 if the comment may exclude certain readers.  Further definitions of these concepts can be seen in the file 1_openai_model.ipynb.
+After the manual assignment of 1200 comments for these 12 variables, the assignments for the remaining comments are predicted (see 2_setfit_model.ipynb). This yields a dataset with 280427 comments, which have scores assigned for each concept proposed.
+
+First, the dataset with the predictions from the setfit model (see setfit_model.ipynb) is read as well as the dataframe contatining the comments. They are merged on the column "comment_id".
+
+```{r}
+df = read.csv("./setfit_predictions.csv")
+d <- read_parquet("./scored_comments.parquet.gzip")
+df_model <- merge(x = d, y = df, by = "comment_id", all = TRUE)
+```
+
+The dataset consists of 35062 different commentators and 2265 videos, under which the comments were placed. The drawn videos were published between 2016/04/14 and 2023/04/19 and origin from 13 family vlog Youtube channels. The commentator with the most comments in this dataset wrote 249 comments, the minimum count is 4, the mean is about 8 comments and the median is 5. This makes the distribution of comment count per user right-skewed.
+
+```{r}
+n_distinct(df_model$channel_name)
+n_distinct(df_model$author_channel_id)
+n_distinct(df_model$video_id)
+
+max(df_model$published_at)
+min(df_model$published_at)
+
+max(table(df_model$author_channel_id))
+min(table(df_model$author_channel_id))
+mean(table(df_model$author_channel_id))
+median(table(df_model$author_channel_id))
+```
+
+From this table, the number of occurences per category can be seen. The category "memory_relate" has the fewest cases in the dataset.
+```{r}
+df %>% 
+  report_table() %>% 
+  display()
+```
+
+### Confirmatory Factor Analysis
+
+Performing a confirmatory factor analysis (CFA), in which the attributes are mapped to the cognitive or affective component, we can observe, how well these latent constructs are explained by the attributes. The factor loadings show, how much of the variability in the observed variable is explained by the latent factor (i.e. cognitive or affective)
+
+Except for the variables "memory_relate" (cognitive) and "future" (affective), all factor loadings show high coefficients, which indicate that they strongly reflect the latent factor. The correlation between the latent factors is close to 0, indicating that the cognitive and the affective factor are independent from each other and represent distinct constructs.
+
+```{r}
+cfa <- 'cognitive =~ comprehension + memory_relate + self_relate + evaluation + future
+        affective =~ sympathy_antipathy + empathy_counterempathy + emotion_release'
+cfa_fit <- cfa(cfa, estimator = "MLM", data = df)
+
+model_parameters(cfa_fit) %>% display()
+```
+
+
+### Item Response Theory (IRT)
+
+The relationship between variables and latent constructs can be read from the factor loadings in IRT. For the cognitive component, all variables except for "future" indicate a substantive relationship. For the affective component, we observe weak relationships for "sympathy_antipathy" and "empathy_counterempathy" and a strong relationship for the variable "emotion_release".
+
+``` {r}
+irt_data <- 
+  df %>%
+  select(6:last_col()) %>% # 7 auf 6 angepasst, da coder-id als Spalte nicht in predictions
+  mutate(evaluation = if_else(evaluation == -1, NA, evaluation))
+
+model <- '
+  cognitive = 1-5
+  affective = 6-8
+  COV = F1*F2'
+
+fit3PL <- mirt(data = irt_data, 
+               model = model,
+               # model = 2,
+               itemtype = "3PL", 
+               verbose = FALSE,
+               technical = list(NCYCLES = 5000))
+fit3PL
+
+```
+
+```{r}
+summary(fit3PL)
+
+```
+
+The actual IRT-parameters are displayed here. The slope-parameters a1 and a2 confirm the finding from the previous cell, regarding the strength of the relationships between variable and latent construct.The difficulty-parameter b is very high for "future" with 35.27, pointing out that this variable is very difficult. A higher b-value means that a higher level of ability is required for an examinee to have a 50% chance of answering the item correctly.. The same partially holds true for "memory_relate", which has a difficulty-parameter of 2.4. The remaining variables show a low b-value, indicating that they are easier items.
+
+```{r}
+params3PL <- coef(fit3PL, IRTpars = TRUE, simplify = TRUE)
+round(params3PL$items, 2)
+```
+
+```{r include=FALSE}
+
+dependent_vars <- colnames(df[-1])
+```
+
+
+Our hypotheses H1 and H2 are tested via linear mixed effects-models. This type of model is applicable to the given data, as the dataset can be grouped by content creators, videos and commentators.
+
+The independent variables are "weeks_since_first_comment", which represents the begin of the parasocial relationship between commentator and content creator,"weeks_since_last_comment" denoting the information disclosure frequency of the recipient and "weeks_since_last_video" denoting the information disclosure frequency of the personae.
+
+The latter two variables are both centered within person resp. within channel as well as grand mean centered. Within-centered weeks capture how deviations from a commentator's, resp. channel's, average behavior (i.e. commenting frequence resp. video-upload frequency) relate to the outcome variable. Grand mean centering captures the effect of differences between commentators, resp. channels, relative to the overall mean. Centering operations may help to improve model performance, as they establish meaningful zero-points. Therefore the intercept in the output becomes more interpretable because it represents the expected value of the outcome variable when all the independent variables are at their mean values. In contrast, without centering, the intercept would represent the expected value of the outcome when all independent variables are set to 0, which might not be meaningful in this case.
+
+Also, random effects allow the model to better fit the data by capturing unobserved heterogeneity across groups. In contrast to traditional ANOVA, mixed effects-models can handle unbalanced and hierarchical data, which is given here, more efficiently. and they also provide more accurate estimates of fixed effects by properly accounting for the random variability across groups. Here, the channel-id of the commentator and the channel name from the content creators provide random variables. This makes the generalizability in mixed effects-models higher compared to ANOVA, as they account for both fixed and random effects.
+
+These considerations justify the use of mixed-effects-models, in this case a linear mixed-effects model, for the 12 dependent variables, which are modeled seperately.
+
+```{r}
+models_list <- list()
+
+# Loop over each dependent variable
+for (v in dependent_vars) {
+  # Fit the model
+  model <- lmer(
+    as.formula(paste(v, "~ weeks_since_first_comment + 
+      weeks_since_last_comment_centered_within_person + 
+      weeks_since_last_comment_person_mean_centered + 
+      weeks_since_last_video_centered_within_channel +
+      weeks_since_last_video_channel_mean_centered +
+      (1 | author_channel_id) +
+      (1 | channel_name)")),
+    data = df_model
+  )
+  
+  # Assign the model to a variable named model_v
+  model_name <- paste0("model_", v)
+  assign(model_name, model)
+  
+  # Store the model in the list with the name as the key
+  models_list[[model_name]] <- model
+  
+  # Write the model to an RDS file
+  write_rds(model, paste0("./models/growthmodel_", v, "_.rds"))
+}
+```
+
+After fitting a model for each dependent variable, the resulting parameters of the models can be seen here. According to our hypotheses H1 and H2, the intensity and intimacy increase a) over time and therefore we expect positive coefficients for "weeks since first comment". We also expect, that more frequent information disclosure of b) persona and c) recipient results in higher intensity and intimacy, i.e. higher values for our dependent variables. As the corresponding variables are formatted as "weeks since last comment", resp. "weeks since last video", we expect negative coefficients here.
+
+``` {r}
+# Get a list of all model files
+model_files <- list.files("./models", pattern = "growthmodel_.*\\.rds$", full.names = TRUE)
+
+# Loop over each file and process the model
+for (file in model_files) {
+  # Read the model from the RDS file
+  model <- read_rds(file)
+  
+  # Extract and display the parameters of the model
+  params <- model %>%
+    parameters() %>%
+    display(digits = 4, zap_small = TRUE)
+  
+  # Print the file name for reference
+  cat("\nParameters for model:", file, "\n")
+  
+  # Display the parameters
+  print(params)
+}
+```
+
+Looking at the parameter "weeks since first comment", which represents the duration of the PSR, we observe positive coefficients for "comprehension", "emotion_release", "empathy_counterempathy", "evaluation", "future", "memory_relate" and "self_relate" with p < 0.001 and "excl_other" with p = 0.004. Former variables are linked to the cognitive and the affective latent factor. Only "sympathy_antipathy" has no significant coefficient. Overall, part a) of our hypotheses (intensity/intimacy increase over time) may not be rejected, as almost all dependent variables have significantly positive coefficients.
+
+Part b) of our hypotheses (intensity/intimacy increase through more frequent information disclosure of the persona) is evaluated by inspecting the coefficients for the two versions of "weeks since last video" (centered within channel and mean centered). For at least one centering version, significantly negative coefficients occur only for "empathy_counterempathy" and "evaluation". Some other variables also show negative coefficients but with a p-value > 0.1. Given, that only two variables fulfill the expectations raised by H1b) and H2b), the hypotheses can be rejected.
+
+Similarly, part c) of our hypotheses (intensity/intimacy increase through more frequent information disclosure of the recipient) is evaluated by inspecting the parameters for "weeks since last comment". Variables with at least one significantly negative coefficient for the versions centered_within_person and mean_centered are the following: "empathy_counterempathy", "evaluation", "future", "memory_relate", "ref_persona" and "sentiment_overall". With 5 out of 8 dependent variables regarding the cognitive and affective component, showing expected coefficients according to H1c) and H2c), this hypotheses can partially not be rejected.
+
+The following plots visualize the coefficients of the models.
+
+```{r}
+for (i in seq_along(models_list)) {
+  # Get the model and its name
+  model_name <- names(models_list)[i]
+  model <- models_list[[i]]
+  
+  # Create a coefficient plot
+  p <- coefplot2(
+    model,
+    frame.plot = TRUE,
+    main = paste("Coefficients for", model_name),
+    varnames = c(
+      "weeks_since_first_comment", 
+      "weeks_since_last_comment_centered_within_person",
+      "weeks_since_last_comment_person_mean_centered",
+      "weeks_since_last_video_centered_within_channel",
+      "weeks_since_last_video_channel_mean_centered"
+    )
+  )
+}
+```
+
+### Conclusion
+
+In conclusion, we have evidence to not reject our hypotheses H1a) and H2a). The duration of the parasocial relationship has a significantly positive impact on seven out of eight measured concepts, which belong to the cognitive and affective component. H1b) and H2b) do not show our expected result for most of the concepts and can therefore be rejected. H1c) and H2c) are not rejected for a part of the measured constructs and for the other part they can be rejected.
+
+Further research could consider other video genres on Youtube in addition in order to avoid selection effects regarding people commenting on family vlogs. This research area seems promising and with more computational capacity for e.g. predicting the different concepts, even better results may be yield.
+
+
+### Bibliography
